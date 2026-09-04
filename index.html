@@ -1237,18 +1237,26 @@ function saveMulWrong() {
 }
 
 function addMulWrong(p) {
-  mulWrongMap[`${p.a}-${p.b}`] = { a: p.a, b: p.b, ans: p.ans };
+  // 틀리면(다시 틀려도) 연속 정답 진행도를 0부터 다시 시작
+  mulWrongMap[`${p.a}-${p.b}`] = { a: p.a, b: p.b, ans: p.ans, correctCount: 0 };
   saveMulWrong();
   updateMulWrongCount();
 }
 
-function removeMulWrong(p) {
+// 오답 노트에 있는 문제를 맞혔을 때 호출. 3번 연속 맞혀야 완전히 외운 것으로 보고 노트에서 제거.
+function registerMulCorrect(p) {
   const key = `${p.a}-${p.b}`;
-  if(mulWrongMap[key]) {
+  const entry = mulWrongMap[key];
+  if(!entry) return { tracked: false, mastered: false, correctCount: 0 };
+  entry.correctCount = (entry.correctCount || 0) + 1;
+  let mastered = false;
+  if(entry.correctCount >= 3) {
     delete mulWrongMap[key];
-    saveMulWrong();
-    updateMulWrongCount();
+    mastered = true;
   }
+  saveMulWrong();
+  updateMulWrongCount();
+  return { tracked: true, mastered, correctCount: mastered ? 3 : entry.correctCount };
 }
 
 function updateMulWrongCount() {
@@ -1257,7 +1265,7 @@ function updateMulWrongCount() {
 }
 
 function startMulReview() {
-  const list = Object.values(mulWrongMap);
+  const list = Object.values(mulWrongMap).map(x => ({ a: x.a, b: x.b, ans: x.ans }));
   if(list.length === 0) {
     alert('틀린 문제가 없어요! 완벽해요 🌟');
     return;
@@ -1268,7 +1276,7 @@ function startMulReview() {
   }
   mulState.table = 'review';
   mulState.problems = list;
-  mulState.total = list.length;
+  mulState.reviewInitial = list.length;
   mulState.idx = 0; mulState.correct = 0; mulState.answered = 0; mulState.streak = 0;
   mulState.started = true;
   document.getElementById('mul-quiz-area').style.display = 'block';
@@ -1349,8 +1357,31 @@ function renderMulChoices(p) {
 }
 
 function renderMulQuestion() {
+  if(mulState.table === 'review') {
+    if(mulState.problems.length === 0) {
+      showCelebration('틀린 문제 복습 완료! 🎊', mulState.correct, mulState.answered, 'mul');
+      stopMul();
+      return;
+    }
+    const p = mulState.problems[0];
+    const key = `${p.a}-${p.b}`;
+    const progressNum = mulWrongMap[key] ? (mulWrongMap[key].correctCount || 0) : 0;
+    const masteredSoFar = Math.max(0, mulState.reviewInitial - Object.keys(mulWrongMap).length);
+    document.getElementById('mul-eq').innerHTML = `<span class="num-box">${p.a}</span> × <span class="num-box">${p.b}</span> = ?`;
+    document.getElementById('mul-num').textContent = `복습 중 (남은 문제 ${mulState.problems.length}개) · 이 문제 연속정답 ${progressNum}/3`;
+    document.getElementById('mul-score').textContent = `✅ ${mulState.correct} / ${mulState.answered}`;
+    document.getElementById('mul-streak').textContent = `🔥 연속: ${mulState.streak}`;
+    document.getElementById('mul-progress').style.width = (mulState.reviewInitial ? (masteredSoFar / mulState.reviewInitial * 100) : 0) + '%';
+    document.getElementById('mul-feedback').textContent = '';
+    document.getElementById('mul-feedback').className = 'feedback';
+    document.getElementById('mul-reveal').textContent = '';
+    document.getElementById('mul-mascot').textContent = mascots[(mulState.answered+8) % mascots.length];
+    renderMulChoices(p);
+    return;
+  }
+
   if(mulState.idx >= mulState.total) {
-    const type = mulState.table === 'mix' ? '구구단(섞기)' : mulState.table === 'review' ? '틀린 문제 복습' : `구구단 ${mulState.table}단`;
+    const type = mulState.table === 'mix' ? '구구단(섞기)' : `구구단 ${mulState.table}단`;
     showCelebration(`${type} 완료! 🎊`, mulState.correct, mulState.answered, 'mul');
     stopMul();
     return;
@@ -1369,7 +1400,8 @@ function renderMulQuestion() {
 }
 
 function selectMulChoice(val, btnEl) {
-  const p = mulState.problems[mulState.idx];
+  const isReview = mulState.table === 'review';
+  const p = isReview ? mulState.problems[0] : mulState.problems[mulState.idx];
   const buttons = Array.from(document.querySelectorAll('#mul-choices .choice-btn'));
   buttons.forEach(b => b.disabled = true);
   mulState.answered++;
@@ -1377,7 +1409,7 @@ function selectMulChoice(val, btnEl) {
   if(val === p.ans) {
     mulState.correct++;
     mulState.streak++;
-    removeMulWrong(p);
+    const result = registerMulCorrect(p);
     playCorrectSound();
     const msg = ['🎉 정답!','👏 잘했어요!','⭐ 훌륭해!','🌟 완벽!','🦄 대단해!'][Math.floor(Math.random()*5)];
     const fb = document.getElementById('mul-feedback');
@@ -1385,10 +1417,21 @@ function selectMulChoice(val, btnEl) {
     fb.className = 'feedback correct-msg';
     btnEl.classList.add('correct');
     if(mulState.streak % 5 === 0 && mulState.streak > 0) showConfetti();
-    setTimeout(() => {
-      mulState.idx++;
-      renderMulQuestion();
-    }, 700);
+
+    if(isReview) {
+      mulState.problems.shift();
+      if(!result.mastered) {
+        // 아직 3번 연속 못 맞혔으니 조금 뒤에 다시 나오도록 다시 넣어줌
+        const pos = Math.min(mulState.problems.length, 2 + Math.floor(Math.random()*3));
+        mulState.problems.splice(pos, 0, { a: p.a, b: p.b, ans: p.ans });
+      }
+      setTimeout(() => { renderMulQuestion(); }, 700);
+    } else {
+      setTimeout(() => {
+        mulState.idx++;
+        renderMulQuestion();
+      }, 700);
+    }
   } else {
     mulState.streak = 0;
     addMulWrong(p);
@@ -1399,23 +1442,38 @@ function selectMulChoice(val, btnEl) {
     btnEl.classList.add('wrong');
     buttons.forEach(b => { if(Number(b.dataset.val) === p.ans) b.classList.add('correct'); });
     document.getElementById('mul-reveal').textContent = `정답: ${p.ans}`;
-    setTimeout(() => {
-      mulState.idx++;
-      renderMulQuestion();
-    }, 1400);
+
+    if(isReview) {
+      mulState.problems.shift();
+      mulState.problems.push({ a: p.a, b: p.b, ans: p.ans }); // 다시 틀렸으니 맨 뒤로 보내서 처음부터 3번 다시
+      setTimeout(() => { renderMulQuestion(); }, 1400);
+    } else {
+      setTimeout(() => {
+        mulState.idx++;
+        renderMulQuestion();
+      }, 1400);
+    }
   }
 }
 
 function skipMul() {
-  const p = mulState.problems[mulState.idx];
+  const isReview = mulState.table === 'review';
+  const p = isReview ? mulState.problems[0] : mulState.problems[mulState.idx];
   document.getElementById('mul-reveal').textContent = `정답: ${p.ans}`;
   document.querySelectorAll('#mul-choices .choice-btn').forEach(b => b.disabled = true);
   mulState.answered++;
   mulState.streak = 0;
-  setTimeout(() => {
-    mulState.idx++;
-    renderMulQuestion();
-  }, 1000);
+
+  if(isReview) {
+    mulState.problems.shift();
+    mulState.problems.push({ a: p.a, b: p.b, ans: p.ans }); // 건너뛴 문제는 뒤로 보내서 다시 나오게 함
+    setTimeout(() => { renderMulQuestion(); }, 1000);
+  } else {
+    setTimeout(() => {
+      mulState.idx++;
+      renderMulQuestion();
+    }, 1000);
+  }
 }
 
 function renderMulChart(table) {

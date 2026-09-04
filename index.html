@@ -204,6 +204,51 @@
   .choice-btn:disabled { cursor: default; }
   .choice-btn.correct { background: #4CAF50; color: white; border-color: #4CAF50; }
   .choice-btn.wrong { background: #F44336; color: white; border-color: #F44336; animation: shake 0.4s ease; }
+
+  /* 큰수 덧셈/뺄셈: 세로 계산 + 숫자판 */
+  .big-quiz-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .big-quiz-row .equation-display-vertical {
+    flex: 1 1 auto;
+    margin: 0;
+    min-width: 260px;
+  }
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 54px);
+    gap: 8px;
+    padding: 10px;
+    background: linear-gradient(135deg, #FFF9C4, #FFF3E0);
+    border-radius: 18px;
+    border: 3px solid #FFD700;
+    flex: 0 0 auto;
+  }
+  .numpad-btn {
+    width: 54px;
+    height: 54px;
+    font-size: 1.4rem;
+    font-family: 'Jua', sans-serif;
+    font-weight: 700;
+    border: 3px solid #FFD700;
+    border-radius: 14px;
+    background: white;
+    color: #333;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: all 0.2s;
+  }
+  .numpad-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.15); }
+  .numpad-btn:active { transform: scale(0.94); }
+  .numpad-btn.numpad-back { background: linear-gradient(135deg, #FF5722, #FF9800); color: white; border-color: transparent; font-size: 1.2rem; }
+  @media (max-width: 600px) {
+    .numpad { grid-template-columns: repeat(3, 46px); gap: 6px; }
+    .numpad-btn { width: 46px; height: 46px; font-size: 1.2rem; }
+  }
   @media (max-width: 600px) {
     .vcol-row { grid-auto-columns: 32px; }
     .vcol-op, .vcol-cell, .vcol-input { width: 32px; height: 40px; font-size: 1.2rem; }
@@ -812,7 +857,22 @@
         <span class="score-display" id="big-score">✅ 0 / 0</span>
       </div>
       <div class="mascot" id="big-mascot">🐘</div>
-      <div class="equation-display-vertical" id="big-eq"></div>
+      <div class="big-quiz-row">
+        <div class="equation-display-vertical" id="big-eq"></div>
+        <div class="numpad">
+          <button class="numpad-btn" onclick="vcolNumpadPress(1)">1</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(2)">2</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(3)">3</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(4)">4</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(5)">5</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(6)">6</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(7)">7</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(8)">8</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(9)">9</button>
+          <button class="numpad-btn numpad-back" onclick="vcolNumpadBackspace()">⌫</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(0)">0</button>
+        </div>
+      </div>
       <div class="feedback" id="big-feedback"></div>
       <div class="answer-reveal" id="big-reveal"></div>
       <div style="text-align:center; margin-top:15px;">
@@ -836,7 +896,22 @@
         <span class="score-display" id="bigsub-score">✅ 0 / 0</span>
       </div>
       <div class="mascot" id="bigsub-mascot">🦓</div>
-      <div class="equation-display-vertical" id="bigsub-eq"></div>
+      <div class="big-quiz-row">
+        <div class="equation-display-vertical" id="bigsub-eq"></div>
+        <div class="numpad">
+          <button class="numpad-btn" onclick="vcolNumpadPress(1)">1</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(2)">2</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(3)">3</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(4)">4</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(5)">5</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(6)">6</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(7)">7</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(8)">8</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(9)">9</button>
+          <button class="numpad-btn numpad-back" onclick="vcolNumpadBackspace()">⌫</button>
+          <button class="numpad-btn" onclick="vcolNumpadPress(0)">0</button>
+        </div>
+      </div>
       <div class="feedback" id="bigsub-feedback"></div>
       <div class="answer-reveal" id="bigsub-reveal"></div>
       <div style="text-align:center; margin-top:15px;">
@@ -1680,6 +1755,51 @@ function buildVerticalAddHTML(p, width) {
 
   html += '</div>';
   return html;
+}
+
+// ---- 숫자판(클릭 입력) ----
+let activeVcolInput = null;
+document.addEventListener('focusin', (e) => {
+  if(e.target && e.target.classList && e.target.classList.contains('vcol-input')) {
+    activeVcolInput = e.target;
+  }
+});
+
+function vcolNumpadPress(digit) {
+  if(!activeVcolInput) return;
+  const isAnswer = activeVcolInput.classList.contains('vcol-answer-input');
+  const maxLen = parseInt(activeVcolInput.getAttribute('maxlength') || '1', 10);
+  let val = (activeVcolInput.value || '') + String(digit);
+  val = val.replace(/[^0-9]/g, '').slice(-maxLen);
+  activeVcolInput.value = val;
+
+  if(isAnswer && val.length >= 1) {
+    const container = activeVcolInput.closest('.equation-display-vertical');
+    const answerInputs = container ? Array.from(container.querySelectorAll('.vcol-answer-input')) : [];
+    const idx = answerInputs.indexOf(activeVcolInput);
+    if(idx > -1 && idx < answerInputs.length - 1) {
+      answerInputs[idx+1].focus();
+    }
+  }
+  // 받아올림/빌림 칸은 포커스를 잃을 때(blur) 판단하므로 여기서는 값만 채움
+}
+
+function vcolNumpadBackspace() {
+  if(!activeVcolInput) return;
+  if(activeVcolInput.value) {
+    activeVcolInput.value = activeVcolInput.value.slice(0, -1);
+    return;
+  }
+  const isAnswer = activeVcolInput.classList.contains('vcol-answer-input');
+  if(isAnswer) {
+    const container = activeVcolInput.closest('.equation-display-vertical');
+    const answerInputs = container ? Array.from(container.querySelectorAll('.vcol-answer-input')) : [];
+    const idx = answerInputs.indexOf(activeVcolInput);
+    if(idx > 0) {
+      answerInputs[idx-1].focus();
+      answerInputs[idx-1].value = '';
+    }
+  }
 }
 
 function attachDigitNav(selector, onEnter) {

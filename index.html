@@ -562,10 +562,10 @@
       <div class="settings-panel">
         <h3>🔧 문제 설정</h3>
         <div style="margin-bottom:10px;">
-          <span style="color:#555; font-size:0.9rem; display:block; margin-bottom:6px;">자릿수 선택:</span>
+          <span style="color:#555; font-size:0.9rem; display:block; margin-bottom:6px;">범위 선택:</span>
           <div class="digit-btns">
-            <button class="digit-btn selected" onclick="setSubDigit(3,this)">3자리</button>
-            <button class="digit-btn" onclick="setSubDigit(4,this)">4자리</button>
+            <button class="digit-btn selected" onclick="setSubDigit('10',this)">10 이내</button>
+            <button class="digit-btn" onclick="setSubDigit('20',this)">20 이내</button>
           </div>
         </div>
       </div>
@@ -942,19 +942,17 @@ function skipAdd() {
 // ============ 뺄셈 ============
 let subState = {
   problems: [], idx: 0, correct: 0, answered: 0, streak: 0,
-  digits: 3, started: false
+  digits: '10', started: false
 };
 
-function generateSubProblems(digits) {
+function generateSubProblems(level) {
+  // level: '10' -> 10 이내, '20' -> 20 이내 (1학년 눈높이)
   const problems = [];
-  const min3 = digits===3 ? 100 : 1000;
-  const max3 = digits===3 ? 999 : 9999;
+  const maxA = level === '10' ? 10 : 20;
 
   for(let i=0; i<TOTAL_Q; i++) {
-    let a = Math.floor(Math.random()*(max3-min3+1))+min3;
-    let b = Math.floor(Math.random()*(a - (digits===3?10:100))) + (digits===3?10:100);
-    if(b >= a) b = Math.floor(a/2);
-    if(b < 1) b = 1;
+    const a = Math.floor(Math.random()*(maxA-2+1)) + 2; // 2 ~ maxA
+    const b = Math.floor(Math.random()*(a-1)) + 1; // 1 ~ a-1 (결과가 항상 1 이상)
     problems.push({a, b, ans: a-b, type:'sub'});
   }
   return problems;

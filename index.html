@@ -524,10 +524,10 @@
       <div class="settings-panel">
         <h3>🔧 문제 설정</h3>
         <div style="margin-bottom:10px;">
-          <span style="color:#555; font-size:0.9rem; display:block; margin-bottom:6px;">자릿수 선택:</span>
+          <span style="color:#555; font-size:0.9rem; display:block; margin-bottom:6px;">더할 숫자 개수 선택:</span>
           <div class="digit-btns">
-            <button class="digit-btn selected" onclick="setAddDigit(3,this)">3자리</button>
-            <button class="digit-btn" onclick="setAddDigit(4,this)">4자리</button>
+            <button class="digit-btn selected" onclick="setAddDigit(3,this)">숫자 3개</button>
+            <button class="digit-btn" onclick="setAddDigit(4,this)">숫자 4개</button>
           </div>
         </div>
       </div>
@@ -839,26 +839,16 @@ let addState = {
   digits: 3, started: false
 };
 
-function generateAddProblems(digits) {
+function generateAddProblems(count) {
+  // count: 더할 한 자리 숫자(1~9)의 개수 (3개 또는 4개)
   const problems = [];
-  const min3 = digits===3 ? 100 : 1000;
-  const max3 = digits===3 ? 999 : 9999;
-  const min2 = digits===3 ? 10 : 100;
-  const max2 = digits===3 ? 99 : 999;
-
   for(let i=0; i<TOTAL_Q; i++) {
-    // 3숫자 더하기 (사진처럼)
-    const type = Math.random() < 0.5 ? 'three' : 'twoLarge';
-    if(type === 'three') {
-      let a = Math.floor(Math.random()*(max2-min2+1))+min2;
-      let b = Math.floor(Math.random()*90)+10;
-      let c = Math.floor(Math.random()*90)+10;
-      problems.push({a,b,c, ans: a+b+c, type:'add3'});
-    } else {
-      let a = Math.floor(Math.random()*(max3-min3+1))+min3;
-      let b = Math.floor(Math.random()*900)+100;
-      problems.push({a,b, ans: a+b, type:'add2'});
+    const nums = [];
+    for(let j=0; j<count; j++) {
+      nums.push(Math.floor(Math.random()*9)+1); // 1~9 한 자리 숫자
     }
+    const ans = nums.reduce((a,b)=>a+b, 0);
+    problems.push({nums, ans, type:'addN'});
   }
   return problems;
 }
@@ -888,12 +878,7 @@ function renderAddQuestion() {
     return;
   }
   const p = addState.problems[addState.idx];
-  let eqHTML = '';
-  if(p.type === 'add3') {
-    eqHTML = `<span class="num-box">${p.a}</span> + <span class="num-box">${p.b}</span> + <span class="num-box">${p.c}</span> = ?`;
-  } else {
-    eqHTML = `<span class="num-box">${p.a}</span> + <span class="num-box">${p.b}</span> = ?`;
-  }
+  const eqHTML = p.nums.map(n => `<span class="num-box">${n}</span>`).join(' + ') + ' = ?';
   document.getElementById('add-eq').innerHTML = eqHTML;
   document.getElementById('add-num').textContent = `문제 ${addState.idx+1} / ${TOTAL_Q}`;
   document.getElementById('add-score').textContent = `✅ ${addState.correct} / ${addState.answered}`;

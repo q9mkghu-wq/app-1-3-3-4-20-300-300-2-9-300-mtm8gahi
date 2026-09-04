@@ -179,6 +179,31 @@
     pointer-events: none;
   }
   .strike-diag.show { display: block; }
+
+  /* 구구단 5지선다 버튼 */
+  .mul-choices-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+  .choice-btn {
+    min-width: 68px;
+    padding: 14px 16px;
+    font-size: 1.6rem;
+    font-family: 'Jua', sans-serif;
+    border: 3px solid #9C27B0;
+    border-radius: 16px;
+    background: white;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  }
+  .choice-btn:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 8px 16px rgba(0,0,0,0.15); }
+  .choice-btn:disabled { cursor: default; }
+  .choice-btn.correct { background: #4CAF50; color: white; border-color: #4CAF50; }
+  .choice-btn.wrong { background: #F44336; color: white; border-color: #F44336; animation: shake 0.4s ease; }
   @media (max-width: 600px) {
     .vcol-row { grid-auto-columns: 32px; }
     .vcol-op, .vcol-cell, .vcol-input { width: 32px; height: 40px; font-size: 1.2rem; }
@@ -716,12 +741,11 @@
           <div class="equation-text" id="mul-eq">준비중...</div>
         </div>
         <div class="answer-section">
-          <input type="number" class="answer-input" id="mul-input" placeholder="?" onkeydown="checkMulKey(event)" inputmode="numeric">
+          <div class="mul-choices-wrap" id="mul-choices"></div>
         </div>
         <div class="feedback" id="mul-feedback"></div>
         <div class="answer-reveal" id="mul-reveal"></div>
         <div style="text-align:center; margin-top:15px;">
-          <button class="btn btn-purple" onclick="checkMul()">✅ 확인!</button>
           <button class="btn btn-blue" onclick="skipMul()">⏭ 다음</button>
           <button class="btn btn-yellow" onclick="stopMul()">🔄 단 선택</button>
         </div>
@@ -1228,6 +1252,39 @@ function stopMul() {
   renderMulChart(typeof mulState.table === 'number' ? mulState.table : 2);
 }
 
+function generateMulChoices(p) {
+  const correct = p.ans;
+  const candidates = new Set([correct]);
+  const deltas = [-p.a, p.a, -p.b, p.b, -1, 1, -2, 2, -3, 3, -10, 10];
+  for(let i=deltas.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [deltas[i], deltas[j]] = [deltas[j], deltas[i]];
+  }
+  for(const d of deltas) {
+    if(candidates.size >= 5) break;
+    const val = correct + d;
+    if(val > 0 && !candidates.has(val)) candidates.add(val);
+  }
+  while(candidates.size < 5) {
+    const val = correct + Math.floor(Math.random()*20) - 10;
+    if(val > 0 && !candidates.has(val)) candidates.add(val);
+  }
+  const arr = Array.from(candidates);
+  for(let i=arr.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function renderMulChoices(p) {
+  const choices = generateMulChoices(p);
+  const container = document.getElementById('mul-choices');
+  container.innerHTML = choices
+    .map(c => `<button class="choice-btn" data-val="${c}" onclick="selectMulChoice(${c}, this)">${c}</button>`)
+    .join('');
+}
+
 function renderMulQuestion() {
   if(mulState.idx >= mulState.total) {
     const type = mulState.table === 'mix' ? '구구단(섞기)' : `구구단 ${mulState.table}단`;
@@ -1241,19 +1298,19 @@ function renderMulQuestion() {
   document.getElementById('mul-score').textContent = `✅ ${mulState.correct} / ${mulState.answered}`;
   document.getElementById('mul-streak').textContent = `🔥 연속: ${mulState.streak}`;
   document.getElementById('mul-progress').style.width = (mulState.idx/mulState.total*100) + '%';
-  document.getElementById('mul-input').value = '';
   document.getElementById('mul-feedback').textContent = '';
   document.getElementById('mul-feedback').className = 'feedback';
   document.getElementById('mul-reveal').textContent = '';
   document.getElementById('mul-mascot').textContent = mascots[(mulState.idx+8) % mascots.length];
-  document.getElementById('mul-input').focus();
+  renderMulChoices(p);
 }
 
-function checkMul() {
-  const val = parseInt(document.getElementById('mul-input').value);
-  if(isNaN(val)) { alert('숫자를 입력해주세요!'); return; }
+function selectMulChoice(val, btnEl) {
   const p = mulState.problems[mulState.idx];
+  const buttons = Array.from(document.querySelectorAll('#mul-choices .choice-btn'));
+  buttons.forEach(b => b.disabled = true);
   mulState.answered++;
+
   if(val === p.ans) {
     mulState.correct++;
     mulState.streak++;
@@ -1262,32 +1319,32 @@ function checkMul() {
     const fb = document.getElementById('mul-feedback');
     fb.textContent = msg;
     fb.className = 'feedback correct-msg';
-    document.getElementById('mul-input').classList.add('correct');
+    btnEl.classList.add('correct');
     if(mulState.streak % 5 === 0 && mulState.streak > 0) showConfetti();
     setTimeout(() => {
-      document.getElementById('mul-input').classList.remove('correct');
       mulState.idx++;
       renderMulQuestion();
-    }, 800);
+    }, 700);
   } else {
     mulState.streak = 0;
     playWrongSound();
     const fb = document.getElementById('mul-feedback');
     fb.textContent = ['😢 틀렸어요...','💪 다시 해봐요!'][Math.floor(Math.random()*2)];
     fb.className = 'feedback wrong-msg';
-    document.getElementById('mul-input').classList.add('wrong');
+    btnEl.classList.add('wrong');
+    buttons.forEach(b => { if(Number(b.dataset.val) === p.ans) b.classList.add('correct'); });
     document.getElementById('mul-reveal').textContent = `정답: ${p.ans}`;
     setTimeout(() => {
-      document.getElementById('mul-input').classList.remove('wrong');
-    }, 500);
+      mulState.idx++;
+      renderMulQuestion();
+    }, 1400);
   }
 }
-
-function checkMulKey(e) { if(e.key==='Enter') checkMul(); }
 
 function skipMul() {
   const p = mulState.problems[mulState.idx];
   document.getElementById('mul-reveal').textContent = `정답: ${p.ans}`;
+  document.querySelectorAll('#mul-choices .choice-btn').forEach(b => b.disabled = true);
   mulState.answered++;
   mulState.streak = 0;
   setTimeout(() => {

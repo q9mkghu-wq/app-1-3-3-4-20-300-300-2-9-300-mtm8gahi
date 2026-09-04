@@ -155,12 +155,21 @@
     height: 34px;
     align-self: end;
   }
+  .vcol-borrow-input {
+    font-size: 0.95rem;
+    letter-spacing: -1px;
+    color: #D84315;
+    background: #FBE9E7;
+    height: 34px;
+    align-self: end;
+  }
   .vcol-carry-empty { background: transparent; border: none; }
   .vcol-line { border-top: 3px solid #333; height: 0; }
   @media (max-width: 600px) {
     .vcol-row { grid-auto-columns: 32px; }
     .vcol-op, .vcol-cell, .vcol-input { width: 32px; height: 40px; font-size: 1.2rem; }
     .vcol-carry-input { height: 28px; font-size: 0.85rem; }
+    .vcol-borrow-input { height: 28px; font-size: 0.75rem; }
   }
 
   /* 페이지 */
@@ -1578,13 +1587,12 @@ function buildVerticalSubHTML(p, width) {
   const botDigits = String(p.b).padStart(width, ' ').split('');
   let html = '<div class="vcol-grid">';
 
-  // 빌림 표시 줄
+  // 빌림 표시 줄 (자릿수마다 바로 위에, 빌려오면 두 자리까지 적을 수 있게)
   html += '<div class="vcol-row">';
   html += '<span class="vcol-op"></span>';
-  for(let c=0; c<width-1; c++) {
-    html += `<input class="vcol-input vcol-carry-input" data-carry-col="${c}" maxlength="1" inputmode="numeric">`;
+  for(let c=0; c<width; c++) {
+    html += `<input class="vcol-input vcol-borrow-input" data-borrow-col="${c}" maxlength="2" inputmode="numeric">`;
   }
-  html += '<span class="vcol-cell vcol-carry-empty"></span>';
   html += '</div>';
 
   // 첫째 줄 숫자

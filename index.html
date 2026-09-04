@@ -660,12 +660,11 @@
         <div class="equation-text" id="add-eq">준비중...</div>
       </div>
       <div class="answer-section">
-        <input type="number" class="answer-input" id="add-input" placeholder="?" onkeydown="checkAddKey(event)" inputmode="numeric">
+        <div class="mul-choices-wrap" id="add-choices"></div>
       </div>
       <div class="feedback" id="add-feedback"></div>
       <div class="answer-reveal" id="add-reveal"></div>
       <div style="text-align:center; margin-top:15px;">
-        <button class="btn btn-green" onclick="checkAdd()">✅ 확인!</button>
         <button class="btn btn-blue" onclick="skipAdd()">⏭ 다음</button>
         <button class="btn btn-yellow" onclick="restartAdd()">🔄 처음부터</button>
       </div>
@@ -698,12 +697,11 @@
         <div class="equation-text" id="sub-eq">준비중...</div>
       </div>
       <div class="answer-section">
-        <input type="number" class="answer-input" id="sub-input" placeholder="?" onkeydown="checkSubKey(event)" inputmode="numeric">
+        <div class="mul-choices-wrap" id="sub-choices"></div>
       </div>
       <div class="feedback" id="sub-feedback"></div>
       <div class="answer-reveal" id="sub-reveal"></div>
       <div style="text-align:center; margin-top:15px;">
-        <button class="btn btn-red" onclick="checkSub()">✅ 확인!</button>
         <button class="btn btn-blue" onclick="skipSub()">⏭ 다음</button>
         <button class="btn btn-yellow" onclick="restartSub()">🔄 처음부터</button>
       </div>
@@ -790,12 +788,11 @@
         <div class="equation-text" id="div-eq">준비중...</div>
       </div>
       <div class="answer-section">
-        <input type="number" class="answer-input" id="div-input" placeholder="?" onkeydown="checkDivKey(event)" inputmode="numeric">
+        <div class="mul-choices-wrap" id="div-choices"></div>
       </div>
       <div class="feedback" id="div-feedback"></div>
       <div class="answer-reveal" id="div-reveal"></div>
       <div style="text-align:center; margin-top:15px;">
-        <button class="btn btn-blue" onclick="checkDiv()">✅ 확인!</button>
         <button class="btn btn-blue" onclick="skipDiv()">⏭ 다음</button>
         <button class="btn btn-yellow" onclick="restartDiv()">🔄 처음부터</button>
       </div>
@@ -1041,6 +1038,10 @@ function restartAdd() {
   initAdd();
 }
 
+function generateAddChoices(p) {
+  return buildChoiceSet(p.ans, [-1,1,-2,2,-3,3,-5,5,-10,10]);
+}
+
 function renderAddQuestion() {
   if(addState.idx >= TOTAL_Q) {
     showCelebration('덧셈 완료! 🎊', addState.correct, addState.answered, 'add');
@@ -1053,19 +1054,19 @@ function renderAddQuestion() {
   document.getElementById('add-score').textContent = `✅ ${addState.correct} / ${addState.answered}`;
   document.getElementById('add-streak').textContent = `🔥 연속: ${addState.streak}`;
   document.getElementById('add-progress').style.width = (addState.idx/TOTAL_Q*100) + '%';
-  document.getElementById('add-input').value = '';
   document.getElementById('add-feedback').textContent = '';
   document.getElementById('add-feedback').className = 'feedback';
   document.getElementById('add-reveal').textContent = '';
   document.getElementById('add-mascot').textContent = mascots[addState.idx % mascots.length];
-  document.getElementById('add-input').focus();
+  renderChoiceButtons('add-choices', generateAddChoices(p), 'selectAddChoice');
 }
 
-function checkAdd() {
-  const val = parseInt(document.getElementById('add-input').value);
-  if(isNaN(val)) { alert('숫자를 입력해주세요!'); return; }
+function selectAddChoice(val, btnEl) {
   const p = addState.problems[addState.idx];
+  const buttons = Array.from(document.querySelectorAll('#add-choices .choice-btn'));
+  buttons.forEach(b => b.disabled = true);
   addState.answered++;
+
   if(val === p.ans) {
     addState.correct++;
     addState.streak++;
@@ -1074,32 +1075,32 @@ function checkAdd() {
     const fb = document.getElementById('add-feedback');
     fb.textContent = msg;
     fb.className = 'feedback correct-msg';
-    document.getElementById('add-input').classList.add('correct');
+    btnEl.classList.add('correct');
     if(addState.streak % 5 === 0 && addState.streak > 0) showConfetti();
     setTimeout(() => {
-      document.getElementById('add-input').classList.remove('correct');
       addState.idx++;
       renderAddQuestion();
-    }, 800);
+    }, 700);
   } else {
     addState.streak = 0;
     playWrongSound();
     const fb = document.getElementById('add-feedback');
     fb.textContent = ['😢 틀렸어요...','💪 다시 해봐요!','🤔 아쉽지만...'][Math.floor(Math.random()*3)];
     fb.className = 'feedback wrong-msg';
-    document.getElementById('add-input').classList.add('wrong');
+    btnEl.classList.add('wrong');
+    buttons.forEach(b => { if(Number(b.dataset.val) === p.ans) b.classList.add('correct'); });
     document.getElementById('add-reveal').textContent = `정답: ${p.ans}`;
     setTimeout(() => {
-      document.getElementById('add-input').classList.remove('wrong');
-    }, 500);
+      addState.idx++;
+      renderAddQuestion();
+    }, 1400);
   }
 }
-
-function checkAddKey(e) { if(e.key==='Enter') checkAdd(); }
 
 function skipAdd() {
   const p = addState.problems[addState.idx];
   document.getElementById('add-reveal').textContent = `정답: ${p.ans}`;
+  document.querySelectorAll('#add-choices .choice-btn').forEach(b => b.disabled = true);
   addState.answered++;
   addState.streak = 0;
   setTimeout(() => {
@@ -1146,6 +1147,10 @@ function restartSub() {
   initSub();
 }
 
+function generateSubChoices(p) {
+  return buildChoiceSet(p.ans, [-1,1,-2,2,-3,3,p.b,-p.b,p.a]);
+}
+
 function renderSubQuestion() {
   if(subState.idx >= TOTAL_Q) {
     showCelebration('뺄셈 완료! 🎊', subState.correct, subState.answered, 'sub');
@@ -1157,19 +1162,19 @@ function renderSubQuestion() {
   document.getElementById('sub-score').textContent = `✅ ${subState.correct} / ${subState.answered}`;
   document.getElementById('sub-streak').textContent = `🔥 연속: ${subState.streak}`;
   document.getElementById('sub-progress').style.width = (subState.idx/TOTAL_Q*100) + '%';
-  document.getElementById('sub-input').value = '';
   document.getElementById('sub-feedback').textContent = '';
   document.getElementById('sub-feedback').className = 'feedback';
   document.getElementById('sub-reveal').textContent = '';
   document.getElementById('sub-mascot').textContent = mascots[(subState.idx+5) % mascots.length];
-  document.getElementById('sub-input').focus();
+  renderChoiceButtons('sub-choices', generateSubChoices(p), 'selectSubChoice');
 }
 
-function checkSub() {
-  const val = parseInt(document.getElementById('sub-input').value);
-  if(isNaN(val)) { alert('숫자를 입력해주세요!'); return; }
+function selectSubChoice(val, btnEl) {
   const p = subState.problems[subState.idx];
+  const buttons = Array.from(document.querySelectorAll('#sub-choices .choice-btn'));
+  buttons.forEach(b => b.disabled = true);
   subState.answered++;
+
   if(val === p.ans) {
     subState.correct++;
     subState.streak++;
@@ -1178,32 +1183,32 @@ function checkSub() {
     const fb = document.getElementById('sub-feedback');
     fb.textContent = msg;
     fb.className = 'feedback correct-msg';
-    document.getElementById('sub-input').classList.add('correct');
+    btnEl.classList.add('correct');
     if(subState.streak % 5 === 0 && subState.streak > 0) showConfetti();
     setTimeout(() => {
-      document.getElementById('sub-input').classList.remove('correct');
       subState.idx++;
       renderSubQuestion();
-    }, 800);
+    }, 700);
   } else {
     subState.streak = 0;
     playWrongSound();
     const fb = document.getElementById('sub-feedback');
     fb.textContent = ['😢 틀렸어요...','💪 다시 해봐요!','🤔 아쉽지만...'][Math.floor(Math.random()*3)];
     fb.className = 'feedback wrong-msg';
-    document.getElementById('sub-input').classList.add('wrong');
+    btnEl.classList.add('wrong');
+    buttons.forEach(b => { if(Number(b.dataset.val) === p.ans) b.classList.add('correct'); });
     document.getElementById('sub-reveal').textContent = `정답: ${p.ans}`;
     setTimeout(() => {
-      document.getElementById('sub-input').classList.remove('wrong');
-    }, 500);
+      subState.idx++;
+      renderSubQuestion();
+    }, 1400);
   }
 }
-
-function checkSubKey(e) { if(e.key==='Enter') checkSub(); }
 
 function skipSub() {
   const p = subState.problems[subState.idx];
   document.getElementById('sub-reveal').textContent = `정답: ${p.ans}`;
+  document.querySelectorAll('#sub-choices .choice-btn').forEach(b => b.disabled = true);
   subState.answered++;
   subState.streak = 0;
   setTimeout(() => {
@@ -1323,10 +1328,9 @@ function stopMul() {
   renderMulChart(typeof mulState.table === 'number' ? mulState.table : 2);
 }
 
-function generateMulChoices(p) {
-  const correct = p.ans;
+function buildChoiceSet(correct, deltaCandidates) {
   const candidates = new Set([correct]);
-  const deltas = [-p.a, p.a, -p.b, p.b, -1, 1, -2, 2, -3, 3, -10, 10];
+  const deltas = deltaCandidates.slice();
   for(let i=deltas.length-1; i>0; i--) {
     const j = Math.floor(Math.random()*(i+1));
     [deltas[i], deltas[j]] = [deltas[j], deltas[i]];
@@ -1334,11 +1338,11 @@ function generateMulChoices(p) {
   for(const d of deltas) {
     if(candidates.size >= 5) break;
     const val = correct + d;
-    if(val > 0 && !candidates.has(val)) candidates.add(val);
+    if(val >= 0 && !candidates.has(val)) candidates.add(val);
   }
   while(candidates.size < 5) {
     const val = correct + Math.floor(Math.random()*20) - 10;
-    if(val > 0 && !candidates.has(val)) candidates.add(val);
+    if(val >= 0 && !candidates.has(val)) candidates.add(val);
   }
   const arr = Array.from(candidates);
   for(let i=arr.length-1; i>0; i--) {
@@ -1348,12 +1352,20 @@ function generateMulChoices(p) {
   return arr;
 }
 
+function renderChoiceButtons(containerId, choices, selectFnName) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = choices
+    .map(c => `<button class="choice-btn" data-val="${c}" onclick="${selectFnName}(${c}, this)">${c}</button>`)
+    .join('');
+}
+
+function generateMulChoices(p) {
+  return buildChoiceSet(p.ans, [-p.a, p.a, -p.b, p.b, -1, 1, -2, 2, -3, 3, -10, 10]);
+}
+
 function renderMulChoices(p) {
   const choices = generateMulChoices(p);
-  const container = document.getElementById('mul-choices');
-  container.innerHTML = choices
-    .map(c => `<button class="choice-btn" data-val="${c}" onclick="selectMulChoice(${c}, this)">${c}</button>`)
-    .join('');
+  renderChoiceButtons('mul-choices', choices, 'selectMulChoice');
 }
 
 function renderMulQuestion() {
@@ -1527,6 +1539,10 @@ function restartDiv() {
   initDiv();
 }
 
+function generateDivChoices(p) {
+  return buildChoiceSet(p.ans, [-1,1,-2,2,-3,3,p.b,-p.b]);
+}
+
 function renderDivQuestion() {
   if(divState.idx >= TOTAL_Q) {
     showCelebration('나누기 완료! 🎊', divState.correct, divState.answered, 'div');
@@ -1538,19 +1554,19 @@ function renderDivQuestion() {
   document.getElementById('div-score').textContent = `✅ ${divState.correct} / ${divState.answered}`;
   document.getElementById('div-streak').textContent = `🔥 연속: ${divState.streak}`;
   document.getElementById('div-progress').style.width = (divState.idx/TOTAL_Q*100) + '%';
-  document.getElementById('div-input').value = '';
   document.getElementById('div-feedback').textContent = '';
   document.getElementById('div-feedback').className = 'feedback';
   document.getElementById('div-reveal').textContent = '';
   document.getElementById('div-mascot').textContent = mascots[(divState.idx+3) % mascots.length];
-  document.getElementById('div-input').focus();
+  renderChoiceButtons('div-choices', generateDivChoices(p), 'selectDivChoice');
 }
 
-function checkDiv() {
-  const val = parseInt(document.getElementById('div-input').value);
-  if(isNaN(val)) { alert('숫자를 입력해주세요!'); return; }
+function selectDivChoice(val, btnEl) {
   const p = divState.problems[divState.idx];
+  const buttons = Array.from(document.querySelectorAll('#div-choices .choice-btn'));
+  buttons.forEach(b => b.disabled = true);
   divState.answered++;
+
   if(val === p.ans) {
     divState.correct++;
     divState.streak++;
@@ -1559,32 +1575,32 @@ function checkDiv() {
     const fb = document.getElementById('div-feedback');
     fb.textContent = msg;
     fb.className = 'feedback correct-msg';
-    document.getElementById('div-input').classList.add('correct');
+    btnEl.classList.add('correct');
     if(divState.streak % 5 === 0 && divState.streak > 0) showConfetti();
     setTimeout(() => {
-      document.getElementById('div-input').classList.remove('correct');
       divState.idx++;
       renderDivQuestion();
-    }, 800);
+    }, 700);
   } else {
     divState.streak = 0;
     playWrongSound();
     const fb = document.getElementById('div-feedback');
     fb.textContent = ['😢 틀렸어요...','💪 다시 해봐요!'][Math.floor(Math.random()*2)];
     fb.className = 'feedback wrong-msg';
-    document.getElementById('div-input').classList.add('wrong');
+    btnEl.classList.add('wrong');
+    buttons.forEach(b => { if(Number(b.dataset.val) === p.ans) b.classList.add('correct'); });
     document.getElementById('div-reveal').textContent = `정답: ${p.ans}`;
     setTimeout(() => {
-      document.getElementById('div-input').classList.remove('wrong');
-    }, 500);
+      divState.idx++;
+      renderDivQuestion();
+    }, 1400);
   }
 }
-
-function checkDivKey(e) { if(e.key==='Enter') checkDiv(); }
 
 function skipDiv() {
   const p = divState.problems[divState.idx];
   document.getElementById('div-reveal').textContent = `정답: ${p.ans}`;
+  document.querySelectorAll('#div-choices .choice-btn').forEach(b => b.disabled = true);
   divState.answered++;
   divState.streak = 0;
   setTimeout(() => {

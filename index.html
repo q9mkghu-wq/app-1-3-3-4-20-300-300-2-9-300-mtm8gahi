@@ -460,6 +460,8 @@
   .table-btn.t8 { background: linear-gradient(135deg, #795548, #4E342E); color: white; }
   .table-btn.t9 { background: linear-gradient(135deg, #FFD700, #FFA500); color: white; }
   .table-btn.t-mix { background: linear-gradient(135deg, #FF6B9D, #9C27B0, #2196F3); color: white; width: auto; padding: 0 20px; border-radius: 30px; font-size: 1rem; }
+  .table-btn.t-review { background: linear-gradient(135deg, #F44336, #FF7043); color: white; width: auto; padding: 0 22px; border-radius: 30px; font-size: 1rem; height: 48px; }
+  .table-btn.t-review:disabled { opacity: 0.5; cursor: default; }
 
   /* 구구단 표 */
   .mul-chart {
@@ -724,6 +726,9 @@
           <button class="table-btn t8" onclick="startMul(8)">8단</button>
           <button class="table-btn t9" onclick="startMul(9)">9단</button>
           <button class="table-btn t-mix" onclick="startMul('mix')">🎲 섞어서!</button>
+        </div>
+        <div style="text-align:center; margin-top:12px;">
+          <button class="table-btn t-review" onclick="startMulReview()">❌ 틀린 문제만 복습 (<span id="mul-wrong-count">0</span>개)</button>
         </div>
       </div>
 
@@ -1213,6 +1218,64 @@ let mulState = {
   table: 2, mode: 'single', total: 9, started: false
 };
 
+// ---- 오답 노트 (틀린 문제만 모아서 복습) ----
+const MUL_WRONG_KEY = 'mulWrongAnswers';
+let mulWrongMap = {};
+
+function loadMulWrong() {
+  try {
+    const saved = localStorage.getItem(MUL_WRONG_KEY);
+    mulWrongMap = saved ? JSON.parse(saved) : {};
+  } catch(e) {
+    mulWrongMap = {};
+  }
+  updateMulWrongCount();
+}
+
+function saveMulWrong() {
+  try { localStorage.setItem(MUL_WRONG_KEY, JSON.stringify(mulWrongMap)); } catch(e) {}
+}
+
+function addMulWrong(p) {
+  mulWrongMap[`${p.a}-${p.b}`] = { a: p.a, b: p.b, ans: p.ans };
+  saveMulWrong();
+  updateMulWrongCount();
+}
+
+function removeMulWrong(p) {
+  const key = `${p.a}-${p.b}`;
+  if(mulWrongMap[key]) {
+    delete mulWrongMap[key];
+    saveMulWrong();
+    updateMulWrongCount();
+  }
+}
+
+function updateMulWrongCount() {
+  const el = document.getElementById('mul-wrong-count');
+  if(el) el.textContent = Object.keys(mulWrongMap).length;
+}
+
+function startMulReview() {
+  const list = Object.values(mulWrongMap);
+  if(list.length === 0) {
+    alert('틀린 문제가 없어요! 완벽해요 🌟');
+    return;
+  }
+  for(let i=list.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  mulState.table = 'review';
+  mulState.problems = list;
+  mulState.total = list.length;
+  mulState.idx = 0; mulState.correct = 0; mulState.answered = 0; mulState.streak = 0;
+  mulState.started = true;
+  document.getElementById('mul-quiz-area').style.display = 'block';
+  document.getElementById('mul-chart-area').style.display = 'none';
+  renderMulQuestion();
+}
+
 function generateMulProblems(table) {
   const problems = [];
   if(table === 'mix') {
@@ -1287,7 +1350,7 @@ function renderMulChoices(p) {
 
 function renderMulQuestion() {
   if(mulState.idx >= mulState.total) {
-    const type = mulState.table === 'mix' ? '구구단(섞기)' : `구구단 ${mulState.table}단`;
+    const type = mulState.table === 'mix' ? '구구단(섞기)' : mulState.table === 'review' ? '틀린 문제 복습' : `구구단 ${mulState.table}단`;
     showCelebration(`${type} 완료! 🎊`, mulState.correct, mulState.answered, 'mul');
     stopMul();
     return;
@@ -1314,6 +1377,7 @@ function selectMulChoice(val, btnEl) {
   if(val === p.ans) {
     mulState.correct++;
     mulState.streak++;
+    removeMulWrong(p);
     playCorrectSound();
     const msg = ['🎉 정답!','👏 잘했어요!','⭐ 훌륭해!','🌟 완벽!','🦄 대단해!'][Math.floor(Math.random()*5)];
     const fb = document.getElementById('mul-feedback');
@@ -1327,6 +1391,7 @@ function selectMulChoice(val, btnEl) {
     }, 700);
   } else {
     mulState.streak = 0;
+    addMulWrong(p);
     playWrongSound();
     const fb = document.getElementById('mul-feedback');
     fb.textContent = ['😢 틀렸어요...','💪 다시 해봐요!'][Math.floor(Math.random()*2)];
@@ -1868,6 +1933,7 @@ function clearScores() {
 initAdd();
 initSub();
 initDiv();
+loadMulWrong();
 
 // 구구단 차트 초기 표시
 setTimeout(() => { renderMulChart(2); }, 100);

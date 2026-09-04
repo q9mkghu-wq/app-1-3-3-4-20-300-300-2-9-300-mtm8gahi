@@ -1507,16 +1507,15 @@ function attachBorrowStrike(rootSelector) {
   borrowInputs.forEach(input => {
     input.addEventListener('input', () => {
       input.value = input.value.replace(/[^0-9]/g, '').slice(0, 2);
+    });
+    // 입력 중에는 판단하지 않고, 칸에서 벗어날 때(입력을 마쳤을 때) 최종 값으로만 판단.
+    // 한 자리 숫자("8" 등, 줄어든 값)면 대각선 표시, 두 자리("12" 등, 빌려온 양)면 표시 안 함.
+    // 한번 그어진 대각선은 이후 값이 바뀌어도 지우지 않음(헷갈림 방지).
+    input.addEventListener('blur', () => {
+      if(input.value.length !== 1) return;
       const col = input.dataset.borrowCol;
       const strikeEl = root.querySelector(`.vcol-top-digit[data-top-col="${col}"] .strike-diag`);
-      if(!strikeEl) return;
-      // 한 자리 숫자를 적으면 "줄어든 값"으로 보고 대각선 표시,
-      // 두 자리("10" 등)를 적으면 "빌려온 양"이라서 대각선은 표시하지 않음
-      if(input.value.length === 1) {
-        strikeEl.classList.add('show');
-      } else {
-        strikeEl.classList.remove('show');
-      }
+      if(strikeEl) strikeEl.classList.add('show');
     });
   });
 }

@@ -165,6 +165,20 @@
   }
   .vcol-carry-empty { background: transparent; border: none; }
   .vcol-line { border-top: 3px solid #333; height: 0; }
+  .vcol-top-digit { position: relative; }
+  .strike-diag {
+    display: none;
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    top: 50%;
+    height: 3px;
+    background: #E53935;
+    border-radius: 2px;
+    transform: translateY(-50%) rotate(-28deg);
+    pointer-events: none;
+  }
+  .strike-diag.show { display: block; }
   @media (max-width: 600px) {
     .vcol-row { grid-auto-columns: 32px; }
     .vcol-op, .vcol-cell, .vcol-input { width: 32px; height: 40px; font-size: 1.2rem; }
@@ -1486,6 +1500,27 @@ function attachDigitNav(selector, onEnter) {
   });
 }
 
+function attachBorrowStrike(rootSelector) {
+  const root = document.querySelector(rootSelector);
+  if(!root) return;
+  const borrowInputs = Array.from(root.querySelectorAll('.vcol-borrow-input'));
+  borrowInputs.forEach(input => {
+    input.addEventListener('input', () => {
+      input.value = input.value.replace(/[^0-9]/g, '').slice(0, 2);
+      const col = input.dataset.borrowCol;
+      const strikeEl = root.querySelector(`.vcol-top-digit[data-top-col="${col}"] .strike-diag`);
+      if(!strikeEl) return;
+      // 한 자리 숫자를 적으면 "줄어든 값"으로 보고 대각선 표시,
+      // 두 자리("10" 등)를 적으면 "빌려온 양"이라서 대각선은 표시하지 않음
+      if(input.value.length === 1) {
+        strikeEl.classList.add('show');
+      } else {
+        strikeEl.classList.remove('show');
+      }
+    });
+  });
+}
+
 function renderBigQuestion() {
   if(bigState.idx >= TOTAL_Q_BIG) {
     showCelebration('큰 수 덧셈 완료! 🎊', bigState.correct, bigState.answered, 'big');
@@ -1595,10 +1630,13 @@ function buildVerticalSubHTML(p, width) {
   }
   html += '</div>';
 
-  // 첫째 줄 숫자
+  // 첫째 줄 숫자 (빌림 처리 시 대각선 표시)
   html += '<div class="vcol-row">';
   html += '<span class="vcol-op"></span>';
-  topDigits.forEach(d => { html += `<span class="vcol-cell">${d===' ' ? '' : d}</span>`; });
+  topDigits.forEach((d, c) => {
+    const val = d === ' ' ? '' : d;
+    html += `<span class="vcol-cell vcol-top-digit" data-top-col="${c}"><span class="digit-txt">${val}</span><span class="strike-diag"></span></span>`;
+  });
   html += '</div>';
 
   // 둘째 줄 숫자
@@ -1642,6 +1680,7 @@ function renderBigSubQuestion() {
   document.getElementById('bigsub-mascot').textContent = mascots[(bigSubState.idx+9) % mascots.length];
 
   attachDigitNav('#bigsub-eq .vcol-answer-input', checkBigSub);
+  attachBorrowStrike('#bigsub-eq');
   const firstInput = document.querySelector('#bigsub-eq .vcol-answer-input');
   if(firstInput) firstInput.focus();
 }
